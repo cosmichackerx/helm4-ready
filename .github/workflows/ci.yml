@@ -81,6 +81,28 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/oracle.md" >> "$GITHUB_STEP_SUMMARY" || true
 
+  oracle-matrix:
+    # The same cases on every Helm 4 release (4.0.0 to 4.3.0) so that a rule is only claimed for releases it was run on. See docs/oracle-matrix.md.
+    name: oracle matrix (Helm 3.22.0 and all 15 Helm 4 releases)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Download every Helm release (SHA-256 pinned in tests/oracle/helm-sha256.txt)
+        run: python tests/oracle/fetch_helm.py "$RUNNER_TEMP/helm"
+      - name: Run the cases on all of them; fail on any difference rules.py does not document
+        run: |
+          extras=()
+          for v in 4.0.0 4.0.1 4.0.2 4.0.4 4.0.5 4.1.0 4.1.1 4.1.3 4.1.4 4.2.0 4.2.1 4.2.2 4.2.3 4.2.4; do extras+=(--extra-helm4 "$RUNNER_TEMP/helm/v$v/helm"); done
+          python tests/oracle/run_oracle.py --helm3 "$RUNNER_TEMP/helm/v3.22.0/helm" --helm4 "$RUNNER_TEMP/helm/v4.3.0/helm" "${extras[@]}" --strict-extra --matrix "$RUNNER_TEMP/matrix.md"
+      - name: Show the matrix
+        if: always()
+        run: cat "$RUNNER_TEMP/matrix.md" >> "$GITHUB_STEP_SUMMARY" || true
+
   action:
     name: action (this checkout, fixtures)
     runs-on: ubuntu-latest

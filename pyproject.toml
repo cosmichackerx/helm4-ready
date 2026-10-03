@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "helm4-ready"
-version = "0.1.0"
+version = "0.2.0"
 description = "Find what breaks when CI moves from Helm 3 to Helm 4 without running Helm: removed and deprecated CLI flags, executable post-renderers, registry login URLs, and the dated Helm 3 end of life. Checked against real Helm 3.22.0 and 4.3.0. SARIF and GitHub Action."
 readme = "README.md"
 requires-python = ">=3.9"

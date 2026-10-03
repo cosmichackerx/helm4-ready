@@ -8,6 +8,15 @@ from dataclasses import dataclass, field
 
 TESTED = {"3": "3.22.0", "4": "4.3.0"}
 REPO = "https://github.com/cosmichackerx/helm4-ready"
+# Every Helm 4 release the oracle ran on (4.1.2 does not exist). Differences between them are in the facts below.
+HELM4_TESTED = ["4.0.0", "4.0.1", "4.0.2", "4.0.4", "4.0.5", "4.1.0", "4.1.1", "4.1.3", "4.1.4", "4.2.0", "4.2.1", "4.2.2", "4.2.3", "4.2.4", "4.3.0"]
+
+# Where Helm 4 releases disagree with each other (oracle-verified: tests/oracle/run_oracle.py --extra-helm4 ... --strict-extra). Anything not listed
+# behaved the same on all of HELM4_TESTED. `helm install --atomic` and `helm template --atomic` were unknown flags until Helm 4.1.1 (helm/helm#31900).
+ATOMIC_REJECTED = ("4.0.0", "4.0.1", "4.0.2", "4.0.4", "4.0.5", "4.1.0", "4.1.1")
+# template --hide-notes / --render-subchart-notes: accepted without a notice before 4.2.0, deprecated since.
+TEMPLATE_NOTES_SILENT = ("4.0.0", "4.0.1", "4.0.2", "4.0.4", "4.0.5", "4.1.0", "4.1.1", "4.1.3", "4.1.4")
+
 HELM3_EOL = "2027-02-10"          # security fixes end (extended from 2026-11-11): https://helm.sh/blog/helm-v3-end-of-life
 HELM3_LAST_FEATURE = "2026-09-09"  # final limited Helm 3 feature release, bug fixes end with it
 EOL_SOURCE = "https://helm.sh/blog/helm-v3-end-of-life"
@@ -47,6 +56,7 @@ class FlagRule:
     oracle_extra: tuple = ()  # extra argv appended in the oracle case
     new: tuple = ()           # argv of the replacement flag, run by the oracle (empty: nothing to run)
     v3_knows_new: bool = False  # whether Helm 3.22.0 accepts the replacement (the oracle checks this)
+    note: str = ""            # extra sentence for the message (version differences between Helm 4 releases)
 
 
 def _c(*names):
@@ -62,7 +72,9 @@ FLAG_RULES = [
     FlagRule("flag-removed", ("--show-desc", "--show-resources"), _c("status"), "removed in Helm 4 with no replacement flag; helm get manifest and kubectl show the resources", oracle_extra=("r",)),
     FlagRule("flag-removed", ("--hide-notes",), _c("test"), "removed in Helm 4", oracle_extra=("r",)),
     # deprecated in Helm 4 (still accepted)
-    FlagRule("flag-deprecated", ("--atomic",), _c("install", "upgrade", "template"), "--rollback-on-failure", new=("--rollback-on-failure",)),
+    FlagRule("flag-deprecated", ("--atomic",), _c("install", "template"), "--rollback-on-failure", new=("--rollback-on-failure",),
+             note="Helm 4.0.0 to 4.1.1 reject `--atomic` on install and template as an unknown flag (helm/helm#31900); 4.1.3 and later accept it with this warning"),
+    FlagRule("flag-deprecated", ("--atomic",), _c("upgrade"), "--rollback-on-failure", new=("--rollback-on-failure",)),
     FlagRule("flag-deprecated", ("--force",), _c("install", "upgrade", "rollback", "template"), "--force-replace", new=("--force-replace",)),
     FlagRule("flag-deprecated", ("--validate",), _c("template"), "--dry-run=server", new=("--dry-run=server",), v3_knows_new=True),
     FlagRule("flag-deprecated", ("--hide-notes", "--render-subchart-notes"), _c("template"), "nothing: the flag has no effect for helm template and is removed in Helm 5"),

@@ -155,7 +155,8 @@ def unwrap_shell_strings(s: str) -> str:
 
 
 def invocations(joined: str):
-    s = re.sub(r"\$\((HELM\w*)\)", lambda m: "$" + m.group(1) + "  ", joined)  # same length, so indices stay valid
+    # Make variables: $(VAR) -> $VAR plus two spaces (same length, so indices stay valid); otherwise the parenthesis would end the command
+    s = re.sub(r"\$\(([A-Za-z_][\w.-]*)\)", lambda m: "$" + m.group(1) + "  ", joined)
     s = unwrap_shell_strings(s)
     toks = [(m.group(0), m.start()) for m in TOKEN.finditer(s)]
     out = []
@@ -245,7 +246,7 @@ def flag_findings(inv: Invocation, joined: str, segs, file: str, snippet: str):
             else:
                 new = fr.replacement
                 tail = "" if new.startswith("nothing") else f" (Helm {TESTED['3']} {'also accepts' if fr.v3_knows_new else 'does not know'} the new spelling)"
-                msg = f"{what}: deprecated in Helm {TESTED['4']}, which still accepts it; use {new}" + tail
+                msg = f"{what}: deprecated in Helm {TESTED['4']}, which still accepts it; use {new}" + tail + (f". {fr.note}" if fr.note else "")
                 res.append(Finding("flag-deprecated", "warning", file, ln, col, msg, snippet))
             break
     # registry login
@@ -305,13 +306,23 @@ def eol_findings(text: str, file: str, today: str):
                 break
             if l2.strip() and (len(l2) - len(l2.lstrip())) < indent:
                 break
-            mv = re.match(r"^\s*version:\s*[\"']?([^\s\"'#]+)", l2)
+            mv = re.match(r"^\s*version:\s*[\"']?([^\s\"'#]+)", l2) or re.search(r"\bwith:\s*\{[^}]*\bversion:\s*[\"']?([^\s\"'#,}]+)", l2)
             if mv:
                 version, vline = mv.group(1), j + 1
                 break
         if version is None or version.lower() == "latest":
-            out.append(Finding("helm-version-latest", "note", file, i + 1, len(m.group(1)) + 1,
-                               f"azure/setup-helm without a version installs the latest Helm; get.helm.sh/helm-latest-version said v4.3.0 on 2026-10-03, so this job already runs Helm 4. The CLI rules of helm4-ready apply to it", lines[i].strip()[:160]))
+            ref = re.search(r"azure/setup-helm@([^\s\"'#]+)", line)
+            ref = ref.group(1) if ref else ""
+            cm = re.search(r"#\s*v?(\d+)", line)
+            major = (re.match(r"v(\d+)", ref) or (cm if re.fullmatch(r"[0-9a-f]{40}", ref) else None))
+            major = major.group(1) if major else None
+            if major in ("3", "4", "5"):
+                how = "the helm/helm repository's latest release" if major == "3" else "get.helm.sh/helm-latest-version"
+                msg = (f"azure/setup-helm@v{major} without a version installs the latest Helm, which the action's source resolves to v4.3.0 on 2026-10-03"
+                       f" ({how}; read from the source, the action was not run), so this job already runs Helm 4. The CLI rules of helm4-ready apply to it")
+            else:
+                msg = f"azure/setup-helm@{ref[:12] or '?'} without a version installs 'latest' by that release's own lookup, which was not checked (only v3, v4 and v5 were read), so the Helm major is unknown"
+            out.append(Finding("helm-version-latest", "note", file, i + 1, len(m.group(1)) + 1, msg, lines[i].strip()[:160]))
         else:
             mm = re.match(r"v?(\d+)", version)
             if mm and mm.group(1) == "3":
