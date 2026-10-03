@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 - 2026-10-03
+
+Precision study ([docs/precision-study.md](docs/precision-study.md)) and the oracle on every Helm 4 release.
+
+* **Fixed** `azure/setup-helm` with a flow-map `with: { version: ... }` was reported as "without a version" (7 of 323 `helm-version-latest` findings in the study corpus; three were really Helm 3 pins and are now `helm3-eol`).
+* **Fixed** Makefile variables `$(NAME)` ended the command at the parenthesis, so flags after it were lost.
+* **Changed** the `helm-version-latest` message claims "already runs Helm 4" only for `azure/setup-helm` v3, v4 and v5 (read from the action's source, not run); other majors say the Helm major is unknown.
+* **Changed** the `--atomic` message on `install` and `template` says Helm 4.0.0 to 4.1.1 reject the flag as unknown (helm/helm#31900) and 4.1.3 and later only warn. `upgrade --atomic` is deprecated on every Helm 4 release.
+* **Added** the oracle runs on all 15 Helm 4 releases (4.0.0 to 4.3.0; `--extra-helm4`, `--matrix`, `--strict-extra`), downloads are SHA-256 checked (`tests/oracle/helm-sha256.txt`), and a difference between releases that `rules.py` does not document fails CI. Matrix: [docs/oracle-matrix.md](docs/oracle-matrix.md).
+* **Added** `study/` scripts (collect, download, scan, sample, cross-check).
+* Tests: 106 (was 103).
+
 ## 0.1.0 - 2026-10-03
 
 First release.

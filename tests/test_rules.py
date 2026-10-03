@@ -329,3 +329,33 @@ def test_skips_vendor_and_git_dirs(tmp_path):
         (tmp_path / d).mkdir()
         (tmp_path / d / "x.sh").write_text("helm list -a\n")
     assert main([str(tmp_path)]) == 0
+
+
+def test_atomic_message_names_the_helm_releases_that_reject_it_on_install_and_template():
+    # oracle (all 15 Helm 4 releases): install/template --atomic were unknown flags in 4.0.0 to 4.1.1 and are deprecated from 4.1.3
+    for cmd in ("install", "template"):
+        (f,) = run(f"helm {cmd} app ./c --atomic")
+        assert "4.0.0 to 4.1.1 reject" in f.message and "helm/helm#31900" in f.message
+    (f,) = run("helm upgrade app ./c --atomic")
+    assert "4.0.0 to 4.1.1" not in f.message  # upgrade --atomic was accepted (deprecated) on every release
+
+
+def test_setup_helm_flow_map_version_is_read():
+    wf = "steps:\n  - uses: azure/setup-helm@v4\n    with: { version: v4.1.1 }\n  - uses: azure/setup-helm@v4\n    with: { version: v3.14.0 }\n"
+    fs = run(wf, "ci.yml")
+    assert [(f.rule, f.line) for f in fs] == [("helm3-eol", 5)]
+
+
+def test_setup_helm_latest_message_depends_on_the_action_major():
+    v5 = run("steps:\n  - uses: azure/setup-helm@v5\n", "ci.yml")[0].message
+    assert "already runs Helm 4" in v5 and "action was not run" in v5
+    sha = run("steps:\n  - uses: azure/setup-helm@" + "a" * 40 + " # v4.3\n", "ci.yml")[0].message
+    assert "already runs Helm 4" in sha
+    v2 = run("steps:\n  - uses: azure/setup-helm@v2\n", "ci.yml")[0].message
+    assert "unknown" in v2 and "already runs Helm 4" not in v2
+
+
+def test_make_variables_do_not_end_the_command():
+    # found by the precision study: `@helm template $(NAME) . --dry-run` lost its flags at the parenthesis
+    fs = run("t:\n\t@helm template $(NAME) . --set a=b --dry-run > /dev/null 2>&1\n", "Makefile")
+    assert ids(fs) == ["flag-deprecated"]

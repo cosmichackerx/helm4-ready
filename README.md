@@ -30,10 +30,10 @@ Every number below is from this repository's own tests or scripts. "Not proven" 
 
 | What is claimed | Checked against | Size | Result | Not proven |
 |---|---|---|---|---|
-| Each flag, post-renderer and registry-login rule is true on the real binaries | Real **Helm 3.22.0** (2026-09-10) and **Helm 4.3.0** (2026-09-09), linux-amd64, SHA-256 checked, run by [`tests/oracle/run_oracle.py`](tests/oracle/run_oracle.py) on every push | 49 cases (flags x commands, replacements, controls, 5 post-renderer, 5 registry-login, 1 exit-code) | 0 disagreements required for CI to pass; main is green. The scanner's claims and the binaries agree | Exactly two Helm versions on one OS. Behaviour changed between Helm 4 releases before ([helm/helm#31900](https://github.com/helm/helm/issues/31900) reported `install --atomic` as broken; on 4.3.0 it only warns), so a rule is true **for the tested versions**, nothing else. Helm 4.0 to 4.2 were not run |
+| Each flag, post-renderer and registry-login rule is true on the real binaries | Real **Helm 3.22.0** (2026-09-10) and **Helm 4.3.0** (2026-09-09), linux-amd64, SHA-256 checked, run by [`tests/oracle/run_oracle.py`](tests/oracle/run_oracle.py) on every push | 49 cases (flags x commands, replacements, controls, 5 post-renderer, 5 registry-login, 1 exit-code) | 0 disagreements required for CI to pass; main is green. The scanner's claims and the binaries agree | One OS (linux-amd64). The two main binaries are 3.22.0 and 4.3.0, and all 15 Helm 4 releases (4.0.0 to 4.3.0) also ran: only 5 of 49 cases differ, see [oracle-matrix.md](docs/oracle-matrix.md). Behaviour changed between Helm 4 releases before ([helm/helm#31900](https://github.com/helm/helm/issues/31900) reported `install --atomic` as broken; on 4.3.0 it only warns), so a rule is true **for the tested versions**, nothing else. `install`/`template --atomic` is **rejected** by Helm 4.0.0 to 4.1.1 and only warns from 4.1.3, which the `--atomic` message now says |
 | The Helm 3 end of life dates | The [Helm 3 end-of-life post](https://helm.sh/blog/helm-v3-end-of-life) fetched on 2026-10-03; re-checked weekly by the [watcher](#helm-watch-keeps-the-tested-versions-and-dates-honest) | 2 dates | Last feature release 2026-09-09, security fixes end 2027-02-10 (extended from 2026-11-11) | Documentation only; there is no oracle for a date. The post could change again, the watcher then opens an issue |
 | An unpinned `azure/setup-helm` installs Helm 4 | `src/run.ts` of azure/setup-helm v5.0.1 and `https://get.helm.sh/helm-latest-version` (returned `v4.3.0`) | 1 | Read from source and from the live file | The action itself was **not** run |
-| Detection accuracy on real repositories | none | 0 | not measured | There is **no corpus precision/recall study** yet; detection is text matching with unit tests (100+), not a shell parser. Expect misses on commands built from variables, `eval`, Helm run through Helmfile, `xargs` or a wrapper script, and on YAML block-list `args:` |
+| Detection accuracy on real repositories | [Precision study](docs/precision-study.md): 3,287 public repositories found by code search (1,576 with helm commands, 6,999 commands), findings hand-labelled by one person | 116 findings checked: `flag-removed` 13/13, `flag-deprecated` 40/40 (1 context caveat), `post-renderer-executable` 3/3, `registry-login-url` 10/10, `helm3-eol` 30/30, `helm-version-latest` 19/20 | 1 false positive (fixed in 0.2.0) and 9 missed lines in one Makefile (fixed). A loose-regex cross-check flagged 55 of 67 single-line commands before the fixes, 64 of 67 after (the other 3 are `echo` text) | **Not a random sample** (GitHub relevance order), one labeller, small `n` for the rare rules (95% lower bounds 44% to 91%), and the cross-check is **not a recall measurement**. Detection is text matching, not a shell parser: expect misses on variables, `eval`, Helmfile, `xargs` and wrappers |
 
 Oracle cases (condensed; the full 49-row table is printed in the CI job summary):
 
@@ -49,7 +49,7 @@ Oracle cases (condensed; the full 49-row table is printed in the CI job summary)
 | `registry login host:5000` | accepted | accepted |
 | `repo update` with an unreachable repository | exit 0, exit 1 with `--fail-on-repo-update-fail` | exit 1 |
 
-**Releases:** v0.1.0 is the first release (2026-10-03). Every release is in [CHANGELOG.md](CHANGELOG.md) and on the [Releases page](https://github.com/cosmichackerx/helm4-ready/releases); the weekly watcher opens an issue when something drifts, it does not release anything.
+**Releases:** v0.1.0 was the first release and v0.2.0 the precision-study release (both 2026-10-03). Every release is in [CHANGELOG.md](CHANGELOG.md) and on the [Releases page](https://github.com/cosmichackerx/helm4-ready/releases); the weekly watcher opens an issue when something drifts, it does not release anything.
 
 ## Install and run
 
@@ -124,7 +124,7 @@ The `helm3-eol` severity follows the calendar so a green build today does not hi
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0          # only needed for pr-mode
-- uses: cosmichackerx/helm4-ready@v0.1.0
+- uses: cosmichackerx/helm4-ready@v0.2.0
   with:
     path: .
     fail-on: error          # error | warning | never
@@ -141,7 +141,7 @@ Inputs: `path`, `fail-on`, `disable`, `ignore`, `summary` (job summary), `pr-mod
 ```yaml
 repos:
   - repo: https://github.com/cosmichackerx/helm4-ready
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: helm4-ready        # report; fails the commit on errors
 ```

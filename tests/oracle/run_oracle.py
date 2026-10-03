@@ -20,7 +20,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-from helm4_ready.rules import FLAG_RULES, TESTED  # noqa: E402
+from helm4_ready.rules import ATOMIC_REJECTED, FLAG_RULES, TEMPLATE_NOTES_SILENT, TESTED  # noqa: E402
 
 REJ = re.compile(r"unknown flag|unknown shorthand flag|invalid argument .* for .* flag|invalid reference", re.I)
 DEP = re.compile(r"has been deprecated|is deprecated", re.I)
@@ -88,6 +88,20 @@ def cases(chart):
     return out
 
 
+def expected_for(version: str, name: str, e4: str) -> str:
+    """What the case should give on this Helm 4 release: the 4.3.0 expectation, except for the documented version differences."""
+    v = version.lstrip("v")
+    if v in ATOMIC_REJECTED and ("install --atomic" in name or "template --atomic" in name) and "replacement" not in name:
+        return "rejected"
+    if v in TEMPLATE_NOTES_SILENT and name in ("template --hide-notes", "template --render-subchart-notes"):
+        return "accepted"
+    return e4
+
+
+def argv_for(argv, from_chart, to_chart):
+    return [x.replace(from_chart, to_chart) for x in argv]
+
+
 def repo_update_default(h3: Helm, h4: Helm) -> list:
     """Helm 3 exits 0 when a repository cannot be updated unless --fail-on-repo-update-fail is given; Helm 4 always fails."""
     res = []
@@ -106,6 +120,9 @@ def main() -> int:
     ap.add_argument("--helm3", required=True)
     ap.add_argument("--helm4", required=True)
     ap.add_argument("--markdown", help="also write the result table as Markdown here")
+    ap.add_argument("--extra-helm4", action="append", default=[], metavar="PATH", help="more Helm 4 binaries (repeatable): their results are listed per case and differences from the main Helm 4 are reported, but they do not fail the run")
+    ap.add_argument("--strict-extra", action="store_true", help="fail when an extra Helm 4 differs from what rules.py documents for that release")
+    ap.add_argument("--matrix", help="write the per-version matrix (Markdown) here; only differences from the main Helm 4 are marked")
     a = ap.parse_args()
     with tempfile.TemporaryDirectory(prefix="h4oracle-") as tmp:
         h3, h4 = Helm(a.helm3, tmp, "h3"), Helm(a.helm4, tmp, "h4")
@@ -137,6 +154,37 @@ def main() -> int:
             rows.append((name, what, "", ok))
             print(f"{'ok  ' if ok else 'FAIL'} {name}: {what}")
         print(f"{len(rows)} case(s), {bad} disagreement(s)")
+        if a.extra_helm4:
+            ex = [Helm(p, tmp, f"x{i}") for i, p in enumerate(a.extra_helm4)]
+            for h in ex:
+                rc, o = h.run(["create", h.chart])
+                if rc != 0:
+                    print("helm create failed:", o)
+                    return 2
+            names = [h.version().split("+")[0] for h in ex]
+            main4 = v4.split("+")[0]
+            lines = ["| Case | Helm 3 " + v3.split("+")[0] + " | " + " | ".join(names + [main4]) + " |", "|---|" + "---|" * (len(names) + 2)]
+            diffs = 0
+            undocumented = 0
+            for name, argv, e3, e4 in cases(h3.chart):
+                res = [classify(h.run(argv_for(argv, h3.chart, h.chart))[1]) for h in ex]
+                g3 = next(r for r in rows if r[0] == name)[1]
+                g4 = next(r for r in rows if r[0] == name)[2]
+                differs = any(r != g4 for r in res)
+                diffs += differs
+                for h_name, r in zip(names, res):
+                    if r != expected_for(h_name, name, e4):
+                        undocumented += 1
+                        print(f"UNDOCUMENTED {name}: {h_name} gave {r}, rules.py says {expected_for(h_name, name, e4)}")
+                lines.append(f"| `{name}` | {g3} | " + " | ".join((f"**{r}**" if r != g4 else r) for r in res) + f" | {g4} |")
+                if differs:
+                    print(f"DIFF {name}: " + ", ".join(f"{n}={r}" for n, r in zip(names, res)) + f", {main4}={g4}")
+            print(f"{diffs} case(s) where an extra Helm 4 differs from {main4}; {undocumented} difference(s) not documented in rules.py")
+            if a.strict_extra and undocumented:
+                bad += undocumented
+            if a.matrix:
+                with open(a.matrix, "w") as fh:
+                    fh.write("\n".join(lines) + "\n")
         if a.markdown:
             with open(a.markdown, "w") as fh:
                 fh.write(f"Helm 3 {v3}, Helm 4 {v4}\n\n| Case | Helm 3 | Helm 4 | As claimed |\n|---|---|---|---|\n")
