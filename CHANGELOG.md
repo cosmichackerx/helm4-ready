@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-10-03
+
+* **`--fix --target 4`** (and `--diff`): rewrites `--atomic` to `--rollback-on-failure`, `--force` to `--force-replace`, bare `--dry-run` to `--dry-run=client`, `template --validate` to `--dry-run=server`, `registry login` URLs to the host, and deletes `repo add --no-update`. Refuses the rewrites Helm 3 would reject when the same file also runs Helm 3. Does not touch removed flags whose removal changes behaviour (`list --all` etc.). `tests/oracle/run_fix_oracle.py` runs 20 fixed commands on Helm 3.22.0 and all 15 Helm 4 releases in CI. Tests: 118 (was 106). Closes the `--fix` roadmap issue.
 
 * CI: README numbers are checked by [claims-check](https://github.com/cosmichackerx/claims-check) (`.claims.json`: oracle case count, Helm 4 release count, unit-test count, version pins). `run_oracle.py --count` needs no binary.
 
