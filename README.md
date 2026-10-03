@@ -220,6 +220,7 @@ and checks that the two end-of-life dates are still on the Helm blog post. It op
 **CI and repository hygiene**
 
 * [node24-ready](https://github.com/cosmichackerx/node24-ready): Finds GitHub Actions still on the removed Node 20 runtime, also inside composite actions and reusable workflows, and the smallest node24 upgrade.
+* [kafka4-ready](https://github.com/cosmichackerx/kafka4-ready): Finds Kafka 3 settings and CLI usage that Kafka 4 rejects or silently ignores (ZooKeeper-mode broker files, removed `zookeeper.*` settings, `--zookeeper` options), checked against a real Kafka 4 broker and tools. Same approach as this tool.
 * [dependabot-gaps](https://github.com/cosmichackerx/dependabot-gaps): Finds manifests your `dependabot.yml` does not cover, and dead or overlapping entries.
 * [sha256-ready](https://github.com/cosmichackerx/sha256-ready): Finds code that assumes 40-character Git hashes before Git 3.0 makes SHA-256 repositories the default.
 * [agent-context-diff](https://github.com/cosmichackerx/agent-context-diff): Diffs `AGENTS.md`, `CLAUDE.md`, Cursor rules and MCP configs between git refs (new servers, widened permissions, hidden Unicode).
