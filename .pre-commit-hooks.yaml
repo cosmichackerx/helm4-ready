@@ -1,0 +1,7 @@
+- id: helm4-ready
+  name: helm4-ready (Helm 3 to Helm 4 CI readiness)
+  description: Report Helm CLI usage that Helm 4 rejects or deprecates in workflows, scripts, Makefiles and Dockerfiles, plus the Helm 3 end of life.
+  entry: helm4-ready
+  language: python
+  files: '(\.ya?ml|\.sh|\.bash|Makefile|\.mk|Dockerfile[^/]*|Jenkinsfile|\.gitlab-ci\.yml)$'
+  pass_filenames: false

@@ -1,0 +1,19 @@
+name: deploy
+on: push
+env:
+  HELM_VERSION: v3.19.0
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - name: login
+        run: echo "$TOKEN" | helm registry login https://ghcr.io/acme -u acme --password-stdin
+      - name: deploy
+        run: |
+          helm upgrade --install app ./chart \
+            --namespace prod --atomic --wait --timeout 5m \
+            --post-renderer ./kustomize.sh --post-renderer-args build
+          helm list -a -n prod
+      - run: helm template app ./chart --dry-run --validate  # ci check
