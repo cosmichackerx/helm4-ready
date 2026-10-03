@@ -151,6 +151,35 @@ jobs:
           path: .github action.yml
           fail-on: error
 
+  released-action:
+    name: released action (consumer test, v0.1.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Migrated fixture passes with the published tag
+        uses: cosmichackerx/helm4-ready@v0.1.0
+        with:
+          path: tests/fixtures/clean-ci
+          fail-on: warning
+      - name: Legacy fixture fails with the published tag
+        id: bad
+        continue-on-error: true
+        uses: cosmichackerx/helm4-ready@v0.1.0
+        with:
+          path: tests/fixtures/legacy-ci
+      - name: It really failed
+        run: test "${{ steps.bad.outcome }}" = "failure"
+      - name: Remote pre-commit hook at the published tag (migrated fixture passes)
+        run: |
+          pip install pre-commit
+          work="$RUNNER_TEMP/pcr"; rm -rf "$work"; mkdir -p "$work"
+          cp -r tests/fixtures/clean-ci/. "$work/"
+          cd "$work" && git init -q && git add -A && git -c user.name=ci -c user.email=ci@example.invalid commit -q -m fixture
+          pre-commit try-repo https://github.com/cosmichackerx/helm4-ready helm4-ready --ref v0.1.0 --all-files
+
   pre-commit:
     name: pre-commit hook (try-repo)
     runs-on: ubuntu-latest
