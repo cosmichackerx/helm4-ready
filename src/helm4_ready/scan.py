@@ -317,8 +317,9 @@ def eol_findings(text: str, file: str, today: str):
             major = (re.match(r"v(\d+)", ref) or (cm if re.fullmatch(r"[0-9a-f]{40}", ref) else None))
             major = major.group(1) if major else None
             if major in ("3", "4", "5"):
+                how = "the helm/helm repository's latest release" if major == "3" else "get.helm.sh/helm-latest-version"
                 msg = (f"azure/setup-helm@v{major} without a version installs the latest Helm, which the action's source resolves to v4.3.0 on 2026-10-03"
-                       f" ({'the helm/helm repository' + chr(39) + 's \"latest\" release' if major == '3' else 'get.helm.sh/helm-latest-version'}; read from the source, the action was not run), so this job already runs Helm 4. The CLI rules of helm4-ready apply to it")
+                       f" ({how}; read from the source, the action was not run), so this job already runs Helm 4. The CLI rules of helm4-ready apply to it")
             else:
                 msg = f"azure/setup-helm@{ref[:12] or '?'} without a version installs 'latest' by that release's own lookup, which was not checked (only v3, v4 and v5 were read), so the Helm major is unknown"
             out.append(Finding("helm-version-latest", "note", file, i + 1, len(m.group(1)) + 1, msg, lines[i].strip()[:160]))
