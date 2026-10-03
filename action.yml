@@ -1,5 +1,5 @@
 name: helm4-ready
-description: "Find Helm 3 CLI usage that Helm 4 rejects in CI workflows, scripts and Makefiles, plus the Helm 3 EOL date. Tested on real Helm."
+description: "Find Helm 3 CLI usage that Helm 4 rejects in CI workflows, scripts and Makefiles, plus the Helm 3 EOL. Tested on real Helm."
 author: cosmichackerx
 branding:
   icon: anchor
