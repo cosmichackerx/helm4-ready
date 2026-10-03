@@ -1,0 +1,61 @@
+name: Helm watch
+
+# Weekly: is there a Helm release newer than the ones the oracle ran on, and do the Helm 3 end-of-life dates still match the Helm blog?
+# Opens one deduplicated issue when something drifted (scripts/watch/watch_helm.py).
+on:
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/watch/**"
+      - ".github/workflows/helm-watch.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Compare with Helm releases and the end-of-life post
+        id: diff
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python scripts/watch/watch_helm.py --out "$RUNNER_TEMP/watch.json"
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          [ "$rc" = 0 ] || [ "$rc" = 3 ] || exit "$rc"
+      - name: Open an issue (scheduled and manual runs only)
+        if: steps.diff.outputs.rc == '3' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY' > "$RUNNER_TEMP/issue.env"
+          import json, os
+          r = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "watch.json")))
+          open(os.path.join(os.environ["RUNNER_TEMP"], "issue.md"), "w").write(r["body"])
+          print("TITLE_KEY=" + r["title"].rsplit("[", 1)[1].rstrip("]"))
+          print("TITLE=" + r["title"])
+          PY
+          TITLE_KEY=$(grep '^TITLE_KEY=' "$RUNNER_TEMP/issue.env" | cut -d= -f2-)
+          TITLE=$(grep '^TITLE=' "$RUNNER_TEMP/issue.env" | cut -d= -f2-)
+          gh label create helm-watch --color 0E8A16 --description "Opened by the Helm watch" 2>/dev/null || true
+          existing=$(gh issue list --label helm-watch --state all --search "\"[$TITLE_KEY]\" in:title" --json number --jq 'length')
+          if [ "$existing" != 0 ]; then
+            echo "An issue for [$TITLE_KEY] already exists; not opening another."
+          else
+            gh issue create --title "$TITLE" --label helm-watch --body-file "$RUNNER_TEMP/issue.md"
+          fi
