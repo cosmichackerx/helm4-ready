@@ -117,13 +117,19 @@ def repo_update_default(h3: Helm, h4: Helm) -> list:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--helm3", required=True)
-    ap.add_argument("--helm4", required=True)
+    ap.add_argument("--count", action="store_true", help="print the number of cases and exit (needs no Helm binary; used by the README claims check)")
+    ap.add_argument("--helm3")
+    ap.add_argument("--helm4")
     ap.add_argument("--markdown", help="also write the result table as Markdown here")
     ap.add_argument("--extra-helm4", action="append", default=[], metavar="PATH", help="more Helm 4 binaries (repeatable): their results are listed per case and differences from the main Helm 4 are reported, but they do not fail the run")
     ap.add_argument("--strict-extra", action="store_true", help="fail when an extra Helm 4 differs from what rules.py documents for that release")
     ap.add_argument("--matrix", help="write the per-version matrix (Markdown) here; only differences from the main Helm 4 are marked")
     a = ap.parse_args()
+    if a.count:
+        print(len(cases("chart")) + 1)  # +1: the repo-update exit-code case, which needs a running binary
+        return 0
+    if not (a.helm3 and a.helm4):
+        ap.error("--helm3 and --helm4 are required unless --count is given")
     with tempfile.TemporaryDirectory(prefix="h4oracle-") as tmp:
         h3, h4 = Helm(a.helm3, tmp, "h3"), Helm(a.helm4, tmp, "h4")
         v3, v4 = h3.version(), h4.version()

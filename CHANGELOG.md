@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* CI: README numbers are checked by [claims-check](https://github.com/cosmichackerx/claims-check) (`.claims.json`: oracle case count, Helm 4 release count, unit-test count, version pins). `run_oracle.py --count` needs no binary.
+
 ## 0.2.0 - 2026-10-03
 
 Precision study ([docs/precision-study.md](docs/precision-study.md)) and the oracle on every Helm 4 release.
