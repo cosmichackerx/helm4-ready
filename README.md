@@ -107,6 +107,30 @@ release.sh
 | `helm3-eol` | note, then warning, then error | a Helm 3 pin: `HELM_VERSION=v3.x`, a `get.helm.sh/helm-v3...` download, `get-helm-3`, `alpine/helm:3...`, `dtzar/helm-kubectl:3...`, `azure/setup-helm` with a `version: v3...` | docs only (see below) |
 | `helm-version-latest` | note | `azure/setup-helm` without a version or with `latest` | source and live file, not run |
 
+## Fixing: `--fix --target 4`
+
+```bash
+helm4-ready --diff --target 4 .     # show the changes as a unified diff, write nothing (exit 1 if something would change)
+helm4-ready --fix  --target 4 .     # write them
+```
+
+Only the **mechanical** rewrites are made, each one run on real Helm (`tests/oracle/run_fix_oracle.py`: 20 fixed commands, every result accepted without a notice by all 15 Helm 4 releases, 4.0.0 to 4.3.0):
+
+| Before | After | Helm 3.22.0 accepts the result? |
+|---|---|---|
+| `--atomic`, `--atomic=false` | `--rollback-on-failure`, `--rollback-on-failure=false` | **no** |
+| `--force` (install, upgrade, rollback, template) | `--force-replace` | **no** |
+| `--dry-run`, `--dry-run=true` (install, upgrade, template) | `--dry-run=client` | yes |
+| `template --validate` | `--dry-run=server` (skipped if the command already has `--dry-run`) | accepts the flag; same behaviour **not** compared, so treated as Helm-4-only |
+| `registry login https://host/path`, `host/path`, `oci://host`, `host/` | `registry login host` (variables stay as written: `$REG/team` becomes `$REG`) | yes |
+| `repo add ... --no-update` | the flag is deleted (Helm 3 already ignored it) | yes |
+
+**Refused when the file also runs Helm 3**: a rewrite that Helm 3 rejects (`--atomic`, `--force`, `template --validate`) is skipped, and listed as `skipped`, if the same file has a `helm3-eol` finding or calls a `helm3` binary. The other rewrites still apply. This only sees one file: a workflow that calls a Makefile pinned to Helm 3 is not detected.
+
+**Never touched**: `list --all`, `rollback --recreate-pods`, `status --show-*`, `test --hide-notes`, `repo update --fail-on-repo-update-fail` (removing them changes what the command does), `--post-renderer` (needs a plugin), the Helm 3 pins, and flags that sit alone on a continuation line. After `--fix` the summary says how many CLI findings still need a human. Edits respect `# helm4-ready: ignore`, `--ignore`, `--disable` and `--only`, keep CRLF and indentation, and are idempotent (a second run changes nothing). Review the diff: this is text matching, not a shell parser.
+
+**Dry run on the study corpus** (the downloaded files of the [precision study](docs/precision-study.md), nothing written): 121 edits in 83 files, 53 more refused because the file also runs Helm 3; a second pass found nothing left to change; the 63 edited YAML files parse to the same structure as before. That checks that the edits are well-formed, **not** that every rewritten workflow still does what its author meant, and the fixed repositories were not run. It also found one bug in my first version, which cut `ghcr.io/${{ github.repository_owner }}` in the middle of the expression (fixed, test added).
+
 ## Dated deadline
 
 Source: [Helm 3 End of Life](https://helm.sh/blog/helm-v3-end-of-life) (fetched 2026-10-03).
@@ -124,7 +148,7 @@ The `helm3-eol` severity follows the calendar so a green build today does not hi
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0          # only needed for pr-mode
-- uses: cosmichackerx/helm4-ready@v0.2.0
+- uses: cosmichackerx/helm4-ready@v0.3.0
   with:
     path: .
     fail-on: error          # error | warning | never
@@ -141,7 +165,7 @@ Inputs: `path`, `fail-on`, `disable`, `ignore`, `summary` (job summary), `pr-mod
 ```yaml
 repos:
   - repo: https://github.com/cosmichackerx/helm4-ready
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: helm4-ready        # report; fails the commit on errors
 ```

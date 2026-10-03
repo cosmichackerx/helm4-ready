@@ -3,6 +3,7 @@
     {"id": "oracle case count (the 49 cases in the validation table)", "file": "README.md", "regex": "(\\d+) cases \\(flags", "expect": {"command": "python tests/oracle/run_oracle.py --count", "regex": "^(\\d+)$"}},
     {"id": "oracle case count (differences 5 of N)", "file": "README.md", "regex": "of (\\d+) cases differ", "expect": {"command": "python tests/oracle/run_oracle.py --count", "regex": "^(\\d+)$"}},
     {"id": "Helm 4 releases the oracle ran on", "file": "README.md", "regex": "all (\\d+) Helm 4 releases", "expect": {"command": "PYTHONPATH=src python -c \"from helm4_ready.rules import HELM4_TESTED as h; print(len(h))\"", "regex": "^(\\d+)$"}},
+    {"id": "fixed commands in the fix oracle", "file": "README.md", "regex": "(\\d+) fixed commands", "expect": {"command": "python tests/oracle/run_fix_oracle.py --helm3 x --helm4 x --count", "regex": "^(\\d+)$"}},
     {"id": "unit tests", "file": "README.md", "regex": "\\((\\d+)\\+ unit tests\\)", "match": "at-least", "max_gap": 25, "expect": {"command": "python -m pytest --collect-only -q", "regex": "^(\\d+) tests? collected"}},
     {"id": "action and hook pins in the README", "file": "README.md", "regex": "(?:helm4-ready@|rev: )v([0-9.]+)", "expect": {"file": "pyproject.toml", "regex": "^version = \"([0-9.]+)\""}}
   ]
