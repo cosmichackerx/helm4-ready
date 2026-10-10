@@ -202,14 +202,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Migrated fixture passes with the published tag
-        uses: cosmichackerx/helm4-ready@v0.1.0
+        uses: cosmichackerx/helm4-ready@v0.3.0
         with:
           path: tests/fixtures/clean-ci
           fail-on: warning
       - name: Legacy fixture fails with the published tag
         id: bad
         continue-on-error: true
-        uses: cosmichackerx/helm4-ready@v0.1.0
+        uses: cosmichackerx/helm4-ready@v0.3.0
         with:
           path: tests/fixtures/legacy-ci
       - name: It really failed
